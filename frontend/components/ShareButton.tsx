@@ -14,7 +14,7 @@ export function ShareButton({ message }: { message: string }) {
       href={buildWhatsAppShareUrl(message)}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex items-center gap-2 rounded-card bg-accent px-5 py-3 font-bold text-white transition-[color,background-color,border-color,transform] duration-150 ease-out hover:bg-accent-deep active:scale-[0.97]"
+      className="inline-flex items-center gap-2 rounded-card bg-[#25D366] px-5 py-3 font-bold text-white transition-[background-color,transform] duration-150 ease-out hover:bg-[#1EBE57] active:scale-[0.97]"
     >
       <WhatsAppIcon />
       Share on WhatsApp

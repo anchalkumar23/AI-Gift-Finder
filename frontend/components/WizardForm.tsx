@@ -6,8 +6,8 @@ import { GiftRequest } from "@/lib/types";
 import { BudgetSlider } from "./BudgetSlider";
 import { ChipGroup } from "./ChipGroup";
 
-const RELATIONSHIPS = ["Sister", "Brother", "Partner", "Parent", "Friend", "Colleague", "Boss"];
-const OCCASIONS = ["Birthday", "Anniversary", "Wedding", "Just because", "Festival"];
+const RELATIONSHIPS = ["Sister", "Brother", "Partner", "Parent", "Friend", "Colleague", "Boss", "Other"];
+const OCCASIONS = ["Birthday", "Anniversary", "Wedding", "Just because", "Festival", "Other"];
 const INTERESTS = [
   "Food/cafes", "Fitness", "Beauty", "Tech",
   "Books", "Home decor", "Fashion", "Travel", "Not sure",
@@ -20,6 +20,8 @@ interface WizardFormProps {
 
 export function WizardForm({ initialRequest, onSubmit }: WizardFormProps) {
   const [form, setForm] = useState<GiftRequest>(initialRequest);
+  const [customRelationship, setCustomRelationship] = useState(false);
+  const [customOccasion, setCustomOccasion] = useState(false);
 
   function update<K extends keyof GiftRequest>(key: K, value: GiftRequest[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -75,10 +77,27 @@ export function WizardForm({ initialRequest, onSubmit }: WizardFormProps) {
         <div className="mt-2">
           <ChipGroup
             options={RELATIONSHIPS}
-            selected={[form.relationship]}
-            onChange={([value]) => update("relationship", value)}
+            selected={[customRelationship ? "Other" : form.relationship]}
+            onChange={([value]) => {
+              if (value === "Other") {
+                setCustomRelationship(true);
+                update("relationship", "");
+              } else {
+                setCustomRelationship(false);
+                update("relationship", value);
+              }
+            }}
           />
         </div>
+        {customRelationship && (
+          <input
+            value={form.relationship}
+            onChange={(event) => update("relationship", event.target.value)}
+            placeholder="e.g. Cousin, mentor, teacher"
+            className="mt-2 w-full rounded-card border border-ink/20 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+            autoFocus
+          />
+        )}
       </div>
 
       <div>
@@ -86,10 +105,27 @@ export function WizardForm({ initialRequest, onSubmit }: WizardFormProps) {
         <div className="mt-2">
           <ChipGroup
             options={OCCASIONS}
-            selected={[form.occasion]}
-            onChange={([value]) => update("occasion", value)}
+            selected={[customOccasion ? "Other" : form.occasion]}
+            onChange={([value]) => {
+              if (value === "Other") {
+                setCustomOccasion(true);
+                update("occasion", "");
+              } else {
+                setCustomOccasion(false);
+                update("occasion", value);
+              }
+            }}
           />
         </div>
+        {customOccasion && (
+          <input
+            value={form.occasion}
+            onChange={(event) => update("occasion", event.target.value)}
+            placeholder="e.g. Promotion, retirement, housewarming"
+            className="mt-2 w-full rounded-card border border-ink/20 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+            autoFocus
+          />
+        )}
       </div>
 
       <BudgetSlider
