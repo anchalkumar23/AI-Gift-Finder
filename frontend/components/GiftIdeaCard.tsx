@@ -1,7 +1,7 @@
 import { GiftIdea } from "@/lib/types";
 import { GiftLinks } from "./GiftLinks";
 
-export function GiftIdeaCard({ idea }: { idea: GiftIdea }) {
+export function GiftIdeaCard({ idea, recipient }: { idea: GiftIdea; recipient: string }) {
   return (
     <article className="overflow-hidden rounded-card border border-ink/10 bg-white">
       {idea.image_url && (
@@ -21,7 +21,10 @@ export function GiftIdeaCard({ idea }: { idea: GiftIdea }) {
           </span>
         )}
         <h4 className="text-base font-bold text-ink">{idea.name}</h4>
-        <p className="mt-1 text-sm text-ink">{idea.why}</p>
+        <p className="mt-1 text-sm text-ink">
+          <span className="font-semibold">Why {recipient} will love it: </span>
+          {idea.why}
+        </p>
         <p className="mt-2 text-sm font-semibold text-muted">
           ₹{idea.price_min.toLocaleString("en-IN")}–₹{idea.price_max.toLocaleString("en-IN")}
         </p>

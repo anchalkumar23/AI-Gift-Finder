@@ -19,7 +19,7 @@ const BORDERS: Record<string, string> = {
   fun: "border-accent",
 };
 
-export function HighlightCard({ idea }: { idea: GiftIdea }) {
+export function HighlightCard({ idea, recipient }: { idea: GiftIdea; recipient: string }) {
   const label = idea.highlight ? LABELS[idea.highlight] : "";
   const accent = idea.highlight ? ACCENTS[idea.highlight] : "bg-primary/10 text-primary-deep";
   const border = idea.highlight ? BORDERS[idea.highlight] : "border-ink/15";
@@ -43,7 +43,10 @@ export function HighlightCard({ idea }: { idea: GiftIdea }) {
           {label}
         </span>
         <h3 className="mt-4 text-xl font-extrabold leading-snug text-ink">{idea.name}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-ink/80">{idea.why}</p>
+        <p className="mt-2 text-sm leading-relaxed text-ink/80">
+          <span className="font-semibold text-ink">Why {recipient} will love it: </span>
+          {idea.why}
+        </p>
         <p className="mt-3 text-sm font-semibold text-muted">
           ₹{idea.price_min.toLocaleString("en-IN")}–₹{idea.price_max.toLocaleString("en-IN")}
         </p>

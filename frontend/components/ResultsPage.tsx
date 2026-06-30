@@ -1,11 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-
-import { filterIdeasByBudget } from "@/lib/budgetFilter";
 import { GiftRequest, GiftResponse, Tone } from "@/lib/types";
 import { AvoidStrip } from "./AvoidStrip";
-import { BudgetSlider } from "./BudgetSlider";
 import { HighlightCard } from "./HighlightCard";
 import { ResultsGrid } from "./ResultsGrid";
 import { ShareButton } from "./ShareButton";
@@ -13,19 +9,13 @@ import { ToneToggle } from "./ToneToggle";
 
 interface ResultsPageProps {
   response: GiftResponse;
+  recipient: string;
   onRegenerate: (overrides?: Partial<GiftRequest>) => void;
 }
 
-export function ResultsPage({ response, onRegenerate }: ResultsPageProps) {
-  const maxPrice = Math.max(...response.ideas.map((idea) => idea.price_max), 1000);
-  const [budgetFilter, setBudgetFilter] = useState<number>(maxPrice);
-
+export function ResultsPage({ response, recipient, onRegenerate }: ResultsPageProps) {
   const highlights = response.ideas.filter((idea) => idea.highlight !== null);
   const rest = response.ideas.filter((idea) => idea.highlight === null);
-  const visibleRest = useMemo(
-    () => filterIdeasByBudget(rest, budgetFilter),
-    [rest, budgetFilter]
-  );
 
   function handleTone(tone: Tone) {
     onRegenerate({ tone });
@@ -39,7 +29,7 @@ export function ResultsPage({ response, onRegenerate }: ResultsPageProps) {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         {highlights.map((idea) => (
-          <HighlightCard key={idea.name} idea={idea} />
+          <HighlightCard key={idea.name} idea={idea} recipient={recipient} />
         ))}
       </div>
 
@@ -59,29 +49,10 @@ export function ResultsPage({ response, onRegenerate }: ResultsPageProps) {
         </div>
       </div>
 
-      <div className="mt-6 max-w-xs">
-        <p className="text-sm font-semibold text-ink">Filter by budget</p>
-        <p className="text-xs text-muted">Updates instantly below — no need to regenerate.</p>
-        <div className="mt-2">
-          <BudgetSlider value={budgetFilter} min={500} max={maxPrice} step={500} onChange={setBudgetFilter} />
-        </div>
+      <div className="mt-10 border-t border-ink/10 pt-8">
+        <h3 className="text-lg font-bold text-ink">More ideas</h3>
+        <ResultsGrid ideas={rest} recipient={recipient} />
       </div>
-
-      <ResultsGrid ideas={visibleRest} />
-
-      {visibleRest.length === 0 && (
-        <p className="mt-4 text-sm text-muted">
-          Nothing fits that budget yet —{" "}
-          <button
-            type="button"
-            className="font-semibold text-primary underline"
-            onClick={() => onRegenerate()}
-          >
-            regenerate for this range
-          </button>
-          .
-        </p>
-      )}
 
       <div className="mt-8">
         <ShareButton message={response.whatsapp_message} />

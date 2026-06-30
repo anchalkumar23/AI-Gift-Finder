@@ -11,7 +11,7 @@ function groupByCategory(ideas: GiftIdea[]): Map<string, GiftIdea[]> {
   return groups;
 }
 
-export function ResultsGrid({ ideas }: { ideas: GiftIdea[] }) {
+export function ResultsGrid({ ideas, recipient }: { ideas: GiftIdea[]; recipient: string }) {
   const groups = groupByCategory(ideas);
 
   return (
@@ -21,7 +21,7 @@ export function ResultsGrid({ ideas }: { ideas: GiftIdea[] }) {
           <h3 className="text-lg font-bold text-ink">{category}</h3>
           <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {categoryIdeas.map((idea) => (
-              <GiftIdeaCard key={idea.name} idea={idea} />
+              <GiftIdeaCard key={idea.name} idea={idea} recipient={recipient} />
             ))}
           </div>
         </section>

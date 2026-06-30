@@ -11,6 +11,7 @@ from models import FollowUp, GiftIdea, GiftRequest, GiftResponse
 
 _NOT_SURE = "Not sure"
 _BANNED_DEFAULTS = "watches, perfume, flowers, books, mugs"
+_TARGET_IDEA_COUNT = 12
 
 _TONE_INSTRUCTIONS = {
     "balanced": "Balance personal sentiment with practicality.",
@@ -54,13 +55,21 @@ def needs_followup(request: GiftRequest) -> FollowUp | None:
 def build_system_prompt(tone: str) -> str:
     return (
         "You are a gift recommendation expert for Indian gift-givers. "
+        "Generate EXACTLY 12 gift ideas in the 'ideas' array — not 8, not 10, not fewer than "
+        "12. This is a hard requirement, count them before responding. "
         f"Never suggest {_BANNED_DEFAULTS} unless hyper-specialized to a stated interest "
         "(e.g. not 'mug' but 'a handmade ceramic coffee mug from a local studio + a coffee "
         "sampler' for someone into coffee and home decor). "
-        "Every idea's 'why' must reference at least one concrete input (an interest, the "
-        "dislikes, age, relationship, or location) — no generic justifications. "
+        "Every idea's 'why' must clearly explain why this specific gift suits this specific "
+        "person, explicitly tying it to one of their actual stated inputs (an interest, the "
+        "dislikes, age, relationship, or location) by name — never a generic justification "
+        "that could apply to any recipient. "
         "Prices are in INR. Prefer Indian platforms, store types, or city-specific options "
-        "where relevant. Return exactly 8 to 10 ideas. Tag EXACTLY one idea 'safe', EXACTLY one idea 'thoughtful', "
+        "where relevant. Group all 12 ideas under a small set of broad "
+        "'category' values (roughly 3-5 categories total, e.g. 'Tech', 'Beauty', 'Home Decor', "
+        "'Fitness') and reuse the same category across multiple ideas where it genuinely fits — "
+        "do not invent a unique one-off category per idea, since ideas are displayed grouped by "
+        "category and a category with only one idea in it looks sparse. Tag EXACTLY one idea 'safe', EXACTLY one idea 'thoughtful', "
         "and EXACTLY one idea 'fun' in the highlight field — never reuse a label on more than one "
         "idea, and every other idea's highlight field must be null. "
         "The 'avoid' list must be reasoned specifically for this person — e.g. their stated "
@@ -73,7 +82,7 @@ def build_system_prompt(tone: str) -> str:
         "Wave Coffee for coffee gear, Urban Company for service experiences, FabIndia or Chumbak for "
         "home decor/handicrafts, Decathlon for fitness gear, Pepperfry or Urban Ladder for furniture). "
         "Never invent a platform name that does not exist. "
-        "At least 2 of the 8 to 10 ideas must be genuine combo/bundle ideas: two or more "
+        "At least 3 of the 12 ideas must be genuine combo/bundle ideas: two or more "
         "complementary items packaged together under one name, joined with ' + ' (e.g. 'Coffee "
         "sampler + ceramic mug'), with a single combined price range and a single combined 'why'. "
         "Mark those ideas' 'is_combo' field true; mark all single-item ideas false. "
@@ -105,8 +114,8 @@ _RESPONSE_SCHEMA = {
         "properties": {
             "ideas": {
                 "type": "array",
-                "minItems": 8,
-                "maxItems": 10,
+                "minItems": 1,
+                "maxItems": 14,
                 "items": {
                     "type": "object",
                     "properties": {
@@ -159,20 +168,42 @@ def _default_client() -> OpenAI:
     return OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 
-def generate_ideas(request: GiftRequest, client: OpenAI | None = None) -> GiftResponse:
-    client = client or _default_client()
+def _request_ideas(client: OpenAI, system_prompt: str, user_prompt: str) -> dict:
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": build_system_prompt(request.tone)},
-            {"role": "user", "content": build_user_prompt(request)},
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
         ],
         response_format={"type": "json_schema", "json_schema": _RESPONSE_SCHEMA},
     )
-    data = json.loads(completion.choices[0].message.content)
-    data["ideas"] = _normalize_highlights(data["ideas"])
+    return json.loads(completion.choices[0].message.content)
 
-    with httpx.Client(timeout=3.0) as image_client, ThreadPoolExecutor(max_workers=8) as pool:
+
+def generate_ideas(request: GiftRequest, client: OpenAI | None = None) -> GiftResponse:
+    client = client or _default_client()
+    system_prompt = build_system_prompt(request.tone)
+    data = _request_ideas(client, system_prompt, build_user_prompt(request))
+
+    if len(data["ideas"]) < _TARGET_IDEA_COUNT:
+        shortfall = _TARGET_IDEA_COUNT - len(data["ideas"])
+        existing_names = [idea["name"] for idea in data["ideas"]]
+        topup_request = request.model_copy(
+            update={"exclude_names": list(request.exclude_names) + existing_names}
+        )
+        topup_prompt = (
+            build_user_prompt(topup_request)
+            + f"\nGenerate EXACTLY {shortfall} additional NEW ideas, different from anything "
+            "already listed above. Do not return fewer than this."
+        )
+        topup_data = _request_ideas(client, system_prompt, topup_prompt)
+        data["ideas"].extend(topup_data["ideas"])
+        if not data.get("avoid"):
+            data["avoid"] = topup_data.get("avoid", [])
+
+    data["ideas"] = _normalize_highlights(data["ideas"][:14])
+
+    with httpx.Client(timeout=3.0) as image_client, ThreadPoolExecutor(max_workers=14) as pool:
         image_urls = list(
             pool.map(
                 lambda idea: fetch_image_url(idea["name"], client=image_client),

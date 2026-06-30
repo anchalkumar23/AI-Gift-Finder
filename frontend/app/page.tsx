@@ -88,7 +88,7 @@ export default function Home() {
         )}
         {stage === "loading" && <LoadingState />}
         {stage === "results" && response && (
-          <ResultsPage response={response} onRegenerate={regenerate} />
+          <ResultsPage response={response} recipient={request.recipient} onRegenerate={regenerate} />
         )}
         {stage === "error" && (
           <div className="text-center">

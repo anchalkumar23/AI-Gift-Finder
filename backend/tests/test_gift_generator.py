@@ -34,7 +34,7 @@ def test_no_followup_when_interests_given():
 def test_system_prompt_bans_generic_defaults_and_states_count():
     prompt = build_system_prompt("balanced")
     assert "perfume" in prompt.lower()
-    assert "8 to 10" in prompt
+    assert "EXACTLY 12" in prompt
 
 
 def test_user_prompt_includes_exclusions():
@@ -69,10 +69,13 @@ class _FakeCompletion:
 
 class _FakeCompletions:
     def __init__(self, payload):
-        self._payload = payload
+        self._payloads = payload if isinstance(payload, list) else [payload]
+        self._call_count = 0
 
     def create(self, **kwargs):
-        return _FakeCompletion(json.dumps(self._payload))
+        index = min(self._call_count, len(self._payloads) - 1)
+        self._call_count += 1
+        return _FakeCompletion(json.dumps(self._payloads[index]))
 
 
 class _FakeChat:
@@ -98,7 +101,14 @@ def test_generate_ideas_builds_links_from_openai_payload(monkeypatch):
             "platforms": ["Amazon", "Flipkart", "Blue Tokai"],
             "highlight": "safe",
             "is_combo": False,
-        }],
+        }] + [
+            {
+                "name": f"Filler idea {i}", "category": "Misc", "why": "z",
+                "price_min": 500, "price_max": 800, "where_to_look": [],
+                "platforms": ["Amazon", "Flipkart"], "highlight": None, "is_combo": False,
+            }
+            for i in range(11)
+        ],
         "avoid": ["Perfume (explicitly disliked)"],
     }
     req = GiftRequest(
@@ -109,7 +119,7 @@ def test_generate_ideas_builds_links_from_openai_payload(monkeypatch):
     result = generate_ideas(req, client=_FakeClient(payload))
 
     assert result.needs_followup is False
-    assert len(result.ideas) == 1
+    assert len(result.ideas) == 12
     links = result.ideas[0].links
     assert len(links) == 3
     assert all(set(dict(link)) == {"platform", "url"} for link in links)
@@ -133,7 +143,14 @@ def test_generate_ideas_preserves_is_combo_flag(monkeypatch):
             "highlight": None,
             "platforms": ["Amazon", "Flipkart"],
             "is_combo": True,
-        }],
+        }] + [
+            {
+                "name": f"Filler idea {i}", "category": "Misc", "why": "z",
+                "price_min": 500, "price_max": 800, "where_to_look": [],
+                "platforms": ["Amazon", "Flipkart"], "highlight": None, "is_combo": False,
+            }
+            for i in range(11)
+        ],
         "avoid": [],
     }
     req = GiftRequest(recipient="Sister", age=27, relationship="Very close",
@@ -151,6 +168,13 @@ def test_generate_ideas_builds_whatsapp_message_from_all_ideas(monkeypatch):
              "where_to_look": [], "highlight": "safe", "platforms": ["Amazon", "Flipkart"], "is_combo": False},
             {"name": "Yoga mat", "category": "Fitness", "why": "y", "price_min": 1000, "price_max": 1500,
              "where_to_look": [], "highlight": None, "platforms": ["Decathlon", "Amazon"], "is_combo": False},
+        ] + [
+            {
+                "name": f"Filler idea {i}", "category": "Misc", "why": "z",
+                "price_min": 500, "price_max": 800, "where_to_look": [],
+                "platforms": ["Amazon", "Flipkart"], "highlight": None, "is_combo": False,
+            }
+            for i in range(10)
         ],
         "avoid": [],
     }
@@ -162,6 +186,39 @@ def test_generate_ideas_builds_whatsapp_message_from_all_ideas(monkeypatch):
     assert "Yoga mat" in result.whatsapp_message
     assert "⭐" in result.whatsapp_message
     assert "Sister" in result.whatsapp_message
+
+
+def test_generate_ideas_tops_up_when_first_call_returns_too_few(monkeypatch):
+    monkeypatch.delenv("PEXELS_API_KEY", raising=False)
+    first_payload = {
+        "ideas": [
+            {
+                "name": "Coffee mug", "category": "Coffee", "why": "x",
+                "price_min": 500, "price_max": 800, "where_to_look": [],
+                "highlight": "safe", "platforms": ["Amazon", "Flipkart"], "is_combo": False,
+            },
+        ],
+        "avoid": [],
+    }
+    topup_payload = {
+        "ideas": [
+            {
+                "name": f"Filler idea {i}", "category": "Misc", "why": "y",
+                "price_min": 500, "price_max": 800, "where_to_look": [],
+                "highlight": None, "platforms": ["Amazon", "Flipkart"], "is_combo": False,
+            }
+            for i in range(11)
+        ],
+        "avoid": [],
+    }
+    req = GiftRequest(recipient="Sister", age=27, relationship="Very close",
+                       occasion="Birthday", budget_min=500, budget_max=2000,
+                       interests=["Coffee"])
+    result = generate_ideas(req, client=_FakeClient([first_payload, topup_payload]))
+    assert len(result.ideas) == 12
+    names = [idea.name for idea in result.ideas]
+    assert "Coffee mug" in names
+    assert "Filler idea 0" in names
 
 
 def test_normalize_highlights_demotes_duplicate_labels():
