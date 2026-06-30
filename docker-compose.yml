@@ -1,0 +1,33 @@
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      PEXELS_API_KEY: ${PEXELS_API_KEY}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+    expose:
+      - "8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Empty = same-origin requests ("/api/gift-ideas"), since nginx fronts both
+        # services on one host. Only set this if the frontend is ever split off to
+        # a different origin than the backend.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+    restart: unless-stopped
+    expose:
+      - "3000"
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - frontend
