@@ -72,13 +72,23 @@ export default function Home() {
     submit({ ...request, ...overrides, exclude_names: excludeNames });
   }
 
+  function startOver() {
+    setResponse(null);
+    setRequest(DEFAULT_REQUEST);
+    setStage("form");
+  }
+
   return (
     <div className="min-h-screen bg-surface">
       <header className="w-full border-b border-ink/10 bg-white">
         <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6">
-          <span className="text-lg font-extrabold tracking-tight text-ink">
+          <button
+            type="button"
+            onClick={startOver}
+            className="text-lg font-extrabold tracking-tight text-ink transition-opacity duration-150 ease-out hover:opacity-70"
+          >
             🎁 AI Gift Finder
-          </span>
+          </button>
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
@@ -88,7 +98,12 @@ export default function Home() {
         )}
         {stage === "loading" && <LoadingState />}
         {stage === "results" && response && (
-          <ResultsPage response={response} recipient={request.recipient} onRegenerate={regenerate} />
+          <ResultsPage
+            response={response}
+            recipient={request.recipient}
+            onRegenerate={regenerate}
+            onStartOver={startOver}
+          />
         )}
         {stage === "error" && (
           <div className="text-center">
